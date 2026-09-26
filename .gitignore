@@ -1,0 +1,32 @@
+#STM32CubeIDE build out
+**/Release/
+
+#Eclipse workspace metadata
+.metadata/
+
+#compiled build artifacts
+*.o
+*.d 
+*.elf   
+*.hex 
+*.bin 
+*.map
+
+
+**/Debug/
+
+#OS Generated files
+.DS_Store
+Thumbs.db 
+
+/ref.odt
+
+/TASK_1_code_sysview.pdf
+/TASK_2_code_sysview.pdf
+/TASK_3_code_sysview.pdf
+/TASK_4_code_sysview.pdf
+/TASK_5_code_sysview.pdf
+/TASK_6_code_sysview.pdf
+/logic.pdf/
+
+/STM32_Programming/

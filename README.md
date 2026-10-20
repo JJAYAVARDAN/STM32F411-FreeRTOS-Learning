@@ -71,8 +71,10 @@ ISR-safe notification API to wake the selected task.
 - `common/ThirdParty/` contains shared FreeRTOS and SEGGER sources used by the
   examples. Keep this folder when cloning the repository.
 - `Records/` contains SEGGER SystemView recordings.
-- `SYSTEMVIEW_SETUP.md` contains additional SystemView integration notes.
+- `SYSTEMVIEW_SETUP.md` contains additional SystemView integration and
+  troubleshooting notes, plus a comparison of the numbered examples.
 - `STM32_Programming/` contains additional FreeRTOS experiments and workspaces.
+- [logic.pdf](logic.pdf) contains the project logic reference.
 
 ## Build
 

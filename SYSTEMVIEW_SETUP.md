@@ -2,6 +2,22 @@
 
 This document records the complete integration for the `001_Task` STM32CubeIDE project.
 
+## Scope and how to use this guide
+
+The setup notes and troubleshooting procedures below preserve the details
+collected while bringing up SystemView, including UART-related diagnostics that
+may be useful for UART-enabled variants or earlier local configurations. Treat
+the selected project's `.ioc`, `Core/Src`, and `Core/Inc` files as authoritative
+for its current hardware and runtime behavior. In the checked-in `001_Task`
+source, the application initializes GPIO and uses
+`SEGGER_SYSVIEW_PrintfTarget()` for task messages; confirm the current source
+before relying on UART-specific instructions.
+
+The numbered examples are separate CubeIDE projects. Their task timing,
+button-handling approach, and interrupt behavior are not interchangeable. The
+project comparison and troubleshooting workflow at the end of this document
+summarize those differences without replacing the detailed setup notes above.
+
 ## Hardware
 
 - MCU: STM32F411CEU6
@@ -442,3 +458,89 @@ arm-none-eabi-gcc ../Core/Src/main.c \
 ```
 
 The local toolchain previously rejected the generated `-fcyclomatic-complexity` option. That is a CubeIDE/toolchain compatibility issue, separate from the SEGGER integration. If it returns, check the selected STM32 GCC toolchain version and its compiler flags in CubeIDE.
+
+## Numbered project comparison
+
+The examples progress from basic task scheduling to periodic scheduling,
+task-notification coordination, and interrupt-to-task communication. Import
+and build each folder as its own CubeIDE project.
+
+| Project | Scheduling / coordination | Button behavior |
+| --- | --- | --- |
+| `001_Task` | Three LED tasks use `HAL_Delay()` with 1000, 800, and 400 ms delays. | None |
+| `003_TASK` | Three LED tasks use `vTaskDelay()` with 1000, 800, and 400 ms delays. | None |
+| `004_Task` | Three LED tasks use `vTaskDelayUntil()` with 1000, 800, and 400 ms periods. | None |
+| `005_Task` | LED tasks wait for task notifications; a task polls the button and advances the notification. | Polling on PA4 |
+| `006_Task_isr` | The button ISR sends a task notification with `xTaskNotifyFromISR()`. | EXTI4 interrupt on PA4 |
+
+All examples target the STM32F411 Black Pill and use LED output pins PA1–PA3;
+check the individual `.ioc` and `Core/Inc/main.h` for the exact pin names and
+configuration. `Records/` contains sample SystemView captures for `001_Task`
+and `003_TASK` through `006_Task_isr`.
+
+### Reconciling older troubleshooting notes with checked-in `001_Task`
+
+The detailed notes above are retained because they document useful debugging
+work, including configurations and symptoms encountered during development.
+Some values describe an earlier or UART-enabled variant, rather than the
+current checked-in `001_Task`. For the current source:
+
+| Earlier note in this guide | Current checked-in `001_Task` source |
+| --- | --- |
+| USART1 setup, PA9/PA10 wiring, and UART `printf()` behavior | `main.c` initializes GPIO only; task messages use `SEGGER_SYSVIEW_PrintfTarget()`. |
+| Red/Orange LED tasks and Monitor task | Three tasks are created: red, green, and blue LED handlers. |
+| PA1/PA2 toggling every 100/500 ms | The handlers toggle PA1, PA2, and PA3 with `HAL_Delay()` values of 1000, 800, and 400 ms. |
+| `SystemViewTimestamp_Init()` helper | The checked-in source enables DWT through its `DWT_CTRL` definition before `SEGGER_SYSVIEW_Conf()`. |
+
+Keep the UART wiring and console diagnostics for variants that actually
+initialize USART1. For the checked-in version, first compare against
+`001_Task/Core/Src/main.c` and the project `.ioc` before following UART-specific
+steps or expecting monitor-task messages.
+
+## Structured troubleshooting workflow
+
+Use this order to isolate problems while keeping the build, target, and trace
+configuration consistent:
+
+1. **Confirm the project and build.** Import the intended numbered folder,
+   clean/build its `Debug` configuration, and check that the output ELF belongs
+   to that same project.
+2. **Confirm the target is running.** Reset and run the MCU. Use the project's
+   LED behavior as an independent check that the scheduler and application
+   tasks are progressing.
+3. **Confirm SystemView startup.** In the project source, verify the timestamp
+   setup (where provided), `SEGGER_SYSVIEW_Conf()`, and
+   `SEGGER_SYSVIEW_Start()` are reached before task execution is expected.
+4. **Confirm the trace connection.** Connect using the configured transport
+   (the shared checked-in SystemView configuration uses J-Link RTT channel 1)
+   and start a fresh recording with the matching ELF.
+5. **Inspect events and timing.** Check that the expected task names appear and
+   timestamps advance. If task events are present but timing is not useful,
+   follow the DWT timestamp checks in the setup and troubleshooting sections.
+6. **Check the project-specific input path.** For `005_Task`, inspect the PA4
+   polling task and notification waits. For `006_Task_isr`, inspect EXTI4
+   configuration, interrupt priority, and the ISR-safe
+   `xTaskNotifyFromISR()` path.
+
+| Symptom | Check |
+| --- | --- |
+| No LED activity | Verify the board pin mapping, task creation, scheduler start, and `Error_Handler()` path. |
+| LEDs work, but no trace events | Verify SystemView initialization/startup, J-Link RTT connection, and the selected project's ELF. |
+| Events appear with zero or unusable times | Check DWT cycle counter initialization and timestamp frequency, then start a new capture. |
+| `005_Task` button does not advance tasks | Check PA4 input configuration, polling/debounce behavior, and task notification handles. |
+| `006_Task_isr` button does not advance tasks | Check PA4/EXTI4 mapping, NVIC enable/priority, pending-bit handling, and the ISR-safe notification call. |
+| Missing SEGGER or FreeRTOS headers | Confirm the repository structure and shared `common/ThirdParty/` sources are intact. |
+
+## Source-of-truth checklist
+
+When behavior differs from this guide, inspect these files in the selected
+project before changing configuration:
+
+- `<project>/<project>.ioc` for CubeMX peripheral and pin configuration.
+- `<project>/Core/Src/main.c` for initialization order and task behavior.
+- `<project>/Core/Inc/FreeRTOSConfig.h` for kernel and interrupt-priority
+  configuration.
+- `common/ThirdParty/SEGGER/Config/SEGGER_SYSVIEW_Conf.h` for shared SystemView
+  transport settings.
+- `common/ThirdParty/SEGGER/Config/SEGGER_SYSVIEW_Config_FreeRTOS.c` for shared
+  SystemView target metadata and timestamp configuration.
